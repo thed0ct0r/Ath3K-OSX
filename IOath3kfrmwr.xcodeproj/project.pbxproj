@@ -1,0 +1,294 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		70056268150AB10C00578176 /* ath3k-1fw.h in Headers */ = {isa = PBXBuildFile; fileRef = 70056267150AB10C00578176 /* ath3k-1fw.h */; };
+		7089FA6C1509B9E0008E9E6B /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 7089FA6A1509B9E0008E9E6B /* InfoPlist.strings */; };
+		7089FA6F1509B9E0008E9E6B /* IOath3kfrmwr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7089FA6E1509B9E0008E9E6B /* IOath3kfrmwr.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		70056267150AB10C00578176 /* ath3k-1fw.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ath3k-1fw.h"; sourceTree = "<group>"; };
+		7089FA621509B9E0008E9E6B /* IOath3kfrmwr.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOath3kfrmwr.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		7089FA661509B9E0008E9E6B /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = System/Library/Frameworks/Kernel.framework; sourceTree = SDKROOT; };
+		7089FA691509B9E0008E9E6B /* IOath3kfrmwr-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "IOath3kfrmwr-Info.plist"; sourceTree = "<group>"; };
+		7089FA6B1509B9E0008E9E6B /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		7089FA6D1509B9E0008E9E6B /* IOath3kfrmwr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOath3kfrmwr.h; sourceTree = "<group>"; };
+		7089FA6E1509B9E0008E9E6B /* IOath3kfrmwr.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOath3kfrmwr.cpp; sourceTree = "<group>"; };
+		7089FA701509B9E0008E9E6B /* IOath3kfrmwr-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "IOath3kfrmwr-Prefix.pch"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7089FA5D1509B9E0008E9E6B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		7089FA551509B9E0008E9E6B = {
+			isa = PBXGroup;
+			children = (
+				7089FA671509B9E0008E9E6B /* IOath3kfrmwr */,
+				7089FA641509B9E0008E9E6B /* Frameworks */,
+				7089FA631509B9E0008E9E6B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7089FA631509B9E0008E9E6B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7089FA621509B9E0008E9E6B /* IOath3kfrmwr.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7089FA641509B9E0008E9E6B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				7089FA651509B9E0008E9E6B /* Other Frameworks */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		7089FA651509B9E0008E9E6B /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				7089FA661509B9E0008E9E6B /* Kernel.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		7089FA671509B9E0008E9E6B /* IOath3kfrmwr */ = {
+			isa = PBXGroup;
+			children = (
+				70056267150AB10C00578176 /* ath3k-1fw.h */,
+				7089FA6D1509B9E0008E9E6B /* IOath3kfrmwr.h */,
+				7089FA6E1509B9E0008E9E6B /* IOath3kfrmwr.cpp */,
+				7089FA681509B9E0008E9E6B /* Supporting Files */,
+			);
+			path = IOath3kfrmwr;
+			sourceTree = "<group>";
+		};
+		7089FA681509B9E0008E9E6B /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				7089FA691509B9E0008E9E6B /* IOath3kfrmwr-Info.plist */,
+				7089FA6A1509B9E0008E9E6B /* InfoPlist.strings */,
+				7089FA701509B9E0008E9E6B /* IOath3kfrmwr-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		7089FA5E1509B9E0008E9E6B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				70056268150AB10C00578176 /* ath3k-1fw.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		7089FA611509B9E0008E9E6B /* IOath3kfrmwr */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7089FA731509B9E0008E9E6B /* Build configuration list for PBXNativeTarget "IOath3kfrmwr" */;
+			buildPhases = (
+				7089FA5C1509B9E0008E9E6B /* Sources */,
+				7089FA5D1509B9E0008E9E6B /* Frameworks */,
+				7089FA5E1509B9E0008E9E6B /* Headers */,
+				7089FA5F1509B9E0008E9E6B /* Resources */,
+				7089FA601509B9E0008E9E6B /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOath3kfrmwr;
+			productName = IOath3kfrmwr;
+			productReference = 7089FA621509B9E0008E9E6B /* IOath3kfrmwr.kext */;
+			productType = "com.apple.product-type.kernel-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7089FA571509B9E0008E9E6B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = 7089FA5A1509B9E0008E9E6B /* Build configuration list for PBXProject "IOath3kfrmwr" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 7089FA551509B9E0008E9E6B;
+			productRefGroup = 7089FA631509B9E0008E9E6B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7089FA611509B9E0008E9E6B /* IOath3kfrmwr */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		7089FA5F1509B9E0008E9E6B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7089FA6C1509B9E0008E9E6B /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		7089FA601509B9E0008E9E6B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7089FA5C1509B9E0008E9E6B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7089FA6F1509B9E0008E9E6B /* IOath3kfrmwr.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		7089FA6A1509B9E0008E9E6B /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				7089FA6B1509B9E0008E9E6B /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		7089FA711509B9E0008E9E6B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		7089FA721509B9E0008E9E6B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		7089FA741509B9E0008E9E6B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1.0.0d1;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "IOath3kfrmwr/IOath3kfrmwr-Prefix.pch";
+				GCC_VERSION = com.apple.compilers.llvmgcc42;
+				INFOPLIST_FILE = "IOath3kfrmwr/IOath3kfrmwr-Info.plist";
+				MODULE_NAME = com.anonymous.IOath3kfrmwr;
+				MODULE_VERSION = 1.0.0d1;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Debug;
+		};
+		7089FA751509B9E0008E9E6B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1.0.0d1;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "IOath3kfrmwr/IOath3kfrmwr-Prefix.pch";
+				GCC_VERSION = com.apple.compilers.llvmgcc42;
+				INFOPLIST_FILE = "IOath3kfrmwr/IOath3kfrmwr-Info.plist";
+				MODULE_NAME = com.anonymous.IOath3kfrmwr;
+				MODULE_VERSION = 1.0.0d1;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7089FA5A1509B9E0008E9E6B /* Build configuration list for PBXProject "IOath3kfrmwr" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7089FA711509B9E0008E9E6B /* Debug */,
+				7089FA721509B9E0008E9E6B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7089FA731509B9E0008E9E6B /* Build configuration list for PBXNativeTarget "IOath3kfrmwr" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7089FA741509B9E0008E9E6B /* Debug */,
+				7089FA751509B9E0008E9E6B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7089FA571509B9E0008E9E6B /* Project object */;
+}
