@@ -34,13 +34,13 @@ OSDefineMetaClassAndStructors(local_IOath3kfrmwr, IOService)
 
 bool local_IOath3kfrmwr::init(OSDictionary *propTable)
 {
-    IOLog("local_IOath3kfrmwr: init\n");
+    IOLog("local_IOath3kfrmwr::init\n");
     return(super::init(propTable));
 }
 
 void local_IOath3kfrmwr::free(void)
 {
-    IOLog("local_IOath3kfrmwr: free\n");
+    IOLog("local_IOath3kfrmwr::free\n");
     super::free();
 }
 
@@ -64,11 +64,27 @@ IOUSBInterface* local_IOath3kfrmwr::GetInterfaceWithBulkPipeOut(IOUSBDevice* pDe
     //iterate through the interfaces looking for our pipe
     while((pInterfaceReturn = pDeviceToSearch->FindNextInterface(pInterfaceReturn, &requestFindInterface)) != NULL)
     {
-        //if we have a out bulk pipe then this is the right interface
-        if (this->GetBulkPipeOutNumber(pInterfaceReturn) >= 0)
+        if (pInterfaceReturn->open(this))
         {
-            bFoundInterface = true;
-            break;
+            //if we have a out bulk pipe then this is the right interface
+            if (this->GetBulkPipeOutNumber(pInterfaceReturn) >= 0)
+            {
+                //found it
+                bFoundInterface = true;
+                
+                //clean up
+                pInterfaceReturn->close(this);
+                
+                //stop looping
+                break;
+            }
+            
+            //clean up
+            pInterfaceReturn->close(this);
+        }
+        else
+        {
+            IOLog("%s::%p::GetInterfaceWithBulkPipeOut -> could not open interface\n", this->getName(), this);
         }
     }
     
@@ -125,6 +141,7 @@ int local_IOath3kfrmwr::GetBulkPipeOutNumber(IOUSBInterface* pInterface)
 bool local_IOath3kfrmwr::start(IOService *provider)
 {
     kern_return_t kResult = KERN_SUCCESS;
+    bool bReturn = false;
     
     //get the device
     IOUSBDevice* pDeviceRaw = OSDynamicCast(IOUSBDevice, provider);
@@ -133,10 +150,9 @@ bool local_IOath3kfrmwr::start(IOService *provider)
         IOLog("%s::%p::start -> device cast\n", this->getName(), this);
         
         //opent the device
-        kResult = pDeviceRaw->open(this);
-        if (kResult != KERN_SUCCESS)
+        if (!(pDeviceRaw->open(this)))
         {
-            IOLog("%s::%p::start -> error opening device (%08x)\n", this->getName(), this, kResult);
+            IOLog("%s::%p::start -> error opening device\n", this->getName(), this);
         }
         else
         {
@@ -176,8 +192,7 @@ bool local_IOath3kfrmwr::start(IOService *provider)
                             //open the interface
                             if (!pInterfaceWithBulkPipeOut->open(this))
                             {
-                                IOLog("%s::%p::start -> error opening interface (%08x)\n", this->getName(), this,
-                                      kResult);
+                                IOLog("%s::%p::start -> error opening interface\n", this->getName(), this);
                             }
                             else
                             {
@@ -286,7 +301,18 @@ bool local_IOath3kfrmwr::start(IOService *provider)
                                                 //check if we transferred everything
                                                 if (iFirmwareRemaining <= 0)
                                                 {
+                                                    bReturn = true;
                                                     IOLog("%s::%p::start -> transfer successful\n", this->getName(), this);
+                                                    
+                                                    kResult = pDeviceRaw->ResetDevice();
+                                                    if (kResult != KERN_SUCCESS)
+                                                    {
+                                                        IOLog("%s::%p::start -> error resetting device for final (%08x)\n", this->getName(), this, kResult);
+                                                    }
+                                                    else
+                                                    {
+                                                        IOLog("%s::%p::start -> device final reset\n", this->getName(), this);
+                                                    }
                                                 }
                                                 else
                                                 {
@@ -343,7 +369,7 @@ bool local_IOath3kfrmwr::start(IOService *provider)
     }
     else IOLog("%s::%p::start -> error casting provider to usb device\n", this->getName(), this);
     
-    return(false);
+    return(bReturn);
 }
 
 
