@@ -10,357 +10,351 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IOMessage.h>
 
+#include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBInterface.h>
+#include <IOKit/usb/USB.h>
 
 #include "IOath3kfrmwr.h"
-
 #include "ath3k-1fw.h"
-
-#define USB_REQ_DFU_DNLOAD	1
-#define BULK_SIZE	4096
-#define MAX_FILE_SIZE 2000000
-
 
 OSDefineMetaClassAndStructors(local_IOath3kfrmwr, IOService)
 #define super IOService
 
-bool 	
-local_IOath3kfrmwr::init(OSDictionary *propTable)
+#define USB_REQ_DFU_DNLOAD	1
+#define CONTROL_PACKET_SIZE 20
+#define BULK_SIZE	4096
+
+#if !defined(MIN)
+#define MIN(A,B)	({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __a : __b; })
+#endif
+
+#if !defined(MAX)
+#define MAX(A,B)	({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __b : __a; })
+#endif
+
+bool local_IOath3kfrmwr::init(OSDictionary *propTable)
 {
     IOLog("local_IOath3kfrmwr: init\n");
-    return (super::init(propTable));
+    return(super::init(propTable));
 }
 
+void local_IOath3kfrmwr::free(void)
+{
+    IOLog("local_IOath3kfrmwr: free\n");
+    super::free();
+}
 
-
-IOService* 
-local_IOath3kfrmwr::probe(IOService *provider, SInt32 *score)
+IOService* local_IOath3kfrmwr::probe(IOService *provider, SInt32 *score)
 {
     IOLog("%s(%p)::probe\n", getName(), this);
-    return super::probe(provider, score);			// this returns this
+    return(super::probe(provider, score));
 }
 
-
-
-bool 
-local_IOath3kfrmwr::attach(IOService *provider)
+IOUSBInterface* local_IOath3kfrmwr::GetInterfaceWithBulkPipeOut(IOUSBDevice* pDeviceToSearch)
 {
-    // be careful when performing initialization in this method. It can be and
-    // usually will be called mutliple 
-    // times per instantiation
-    IOLog("%s(%p)::attach\n", getName(), this);
-    return super::attach(provider);
+    IOUSBInterface* pInterfaceReturn = NULL;
+    bool bFoundInterface = false;
+    
+    IOUSBFindInterfaceRequest requestFindInterface = {0};
+    requestFindInterface.bAlternateSetting = kIOUSBFindInterfaceDontCare;
+    requestFindInterface.bInterfaceClass = kIOUSBFindInterfaceDontCare;
+    requestFindInterface.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
+    requestFindInterface.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
+    
+    //iterate through the interfaces looking for our pipe
+    while((pInterfaceReturn = pDeviceToSearch->FindNextInterface(pInterfaceReturn, &requestFindInterface)) != NULL)
+    {
+        //if we have a out bulk pipe then this is the right interface
+        if (this->GetBulkPipeOutNumber(pInterfaceReturn) >= 0)
+        {
+            bFoundInterface = true;
+            break;
+        }
+    }
+    
+    //if we couldn't find a bulk pipe - make sure we return null
+    if (!bFoundInterface) pInterfaceReturn = NULL;
+    
+    return(pInterfaceReturn);
 }
 
-
-void 
-local_IOath3kfrmwr::detach(IOService *provider)
+int local_IOath3kfrmwr::GetBulkPipeOutNumber(IOUSBInterface* pInterface)
 {
-    // Like attach, this method may be called multiple times
-    IOLog("%s(%p)::detach\n", getName(), this);
-    return super::detach(provider);
+    int iReturn = -1;
+    
+    int iNumberOfPipes = pInterface->GetNumEndpoints();
+    if (iNumberOfPipes > 0)
+    {
+        for (int iPipeCounter = 0; iPipeCounter < iNumberOfPipes; iPipeCounter++)
+        {
+            IOUSBPipe* pPipeIterator = pInterface->GetPipeObj(iPipeCounter);
+            if (pPipeIterator != NULL)
+            {
+                if (pPipeIterator->GetType() == kUSBBulk)
+                {
+                    if (pPipeIterator->GetDirection() == kUSBOut)
+                    {
+                        //stop and return this pipe #
+                        iReturn = iPipeCounter;
+                        break;
+                    }
+                }
+                
+                //cleanup
+                //pPipeIterator->release();
+            }
+            else
+            {
+                IOLog("%s::%p::GetBulkPipeOutNumber -> could not open pipe #%d\n", this->getName(), this, iPipeCounter);
+            }
+        }
+    }
+    else
+    {
+        IOLog("%s::%p::GetBulkPipeOutNumber -> could not get number of pipes\n", this->getName(), this);
+    }
+    
+    return(iReturn);
 }
-
-
 
 //
 // start
 // when this method is called, I have been selected as the driver for this device.
 // I can still return false to allow a different driver to load
 //
-bool 
-local_IOath3kfrmwr::start(IOService *provider)
+bool local_IOath3kfrmwr::start(IOService *provider)
 {
-    IOReturn 				err;
-    const IOUSBConfigurationDescriptor *cd;
+    kern_return_t kResult = KERN_SUCCESS;
     
-    // Do all the work here, on an IOKit matching thread.
-    
-    // 0.1 Get my USB Device
-    IOLog("%s(%p)::start!\n", getName(), this);
-    pUsbDev = OSDynamicCast(IOUSBDevice, provider);
-    if(!pUsbDev) 
+    //get the device
+    IOUSBDevice* pDeviceRaw = OSDynamicCast(IOUSBDevice, provider);
+    if (pDeviceRaw != NULL)
     {
-        IOLog("%s(%p)::start - Provider isn't a USB device!!!\n", getName(), this);
-        return false;
-    }
-
-    // 0.2 Reset the device
-    err = pUsbDev->ResetDevice();
-    if (err)
-    {
-        IOLog("%s(%p)::start - failed to reset the device\n", getName(), this);
-        pUsbDev->close(this);
-        return false;
-    } else IOLog("%s(%p)::start: device reset\n", getName(), this);
-    
-    // 0.3 Find the first config/interface
-    int numconf = 0;
-    if ((numconf = pUsbDev->GetNumConfigurations()) < 1)
-    {
-        IOLog("%s(%p)::start - no composite configurations\n", getName(), this);
-        return false;
-    } else IOLog("%s(%p)::start: num configurations %d\n", getName(), this, numconf);
+        IOLog("%s::%p::start -> device cast\n", this->getName(), this);
         
-    cd = pUsbDev->GetFullConfigurationDescriptor(0);
-    
-    // Set the configuration to the first config
-    if (!cd)
-    {
-        IOLog("%s(%p)::start - no config descriptor\n", getName(), this);
-        return false;
-    }
-	
-    // 1.0 Open the USB device
-    if (!pUsbDev->open(this))
-    {
-        IOLog("%s(%p)::start - unable to open device for configuration\n", getName(), this);
-        return false;
-    }
-    
-    // 1.1 Set the configuration to the first config
-    err = pUsbDev->SetConfiguration(this, cd->bConfigurationValue, true);
-    if (err)
-    {
-        IOLog("%s(%p)::start - unable to set the configuration\n", getName(), this);
-        pUsbDev->close(this);
-        return false;
-    }
-    
-    // 1.2 Get the status of the USB device (optional, for diag.)
-    USBStatus status;
-    err = pUsbDev->GetDeviceStatus(&status);
-    if (err)
-    {
-        IOLog("%s(%p)::start - unable to get device status\n", getName(), this);
-        pUsbDev->close(this);
-        return false;
-    } else IOLog("%s(%p)::start: device status %d\n", getName(), this, (int)status);
-
-    // 2.0 Find the interface for bulk endpoint transfers
-    IOUSBFindInterfaceRequest request;
-    request.bInterfaceClass = kIOUSBFindInterfaceDontCare;
-    request.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
-    request.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
-    request.bAlternateSetting = kIOUSBFindInterfaceDontCare;
-    
-    IOUSBInterface * intf = pUsbDev->FindNextInterface(NULL, &request);
-    if (!intf) {
-        IOLog("%s(%p)::start - unable to find interface\n", getName(), this);
-        pUsbDev->close(this);
-        return false;
-    }
-
-    // 2.1 Open the interface
-    if (!intf->open(this))
-    {
-        IOLog("%s(%p)::start - unable to open interface\n", getName(), this);
-        pUsbDev->close(this);
-        return false;
-    }
-
-    // 2.2 Get info on endpoints (optional, for diag.)
-    int numep = intf->GetNumEndpoints();
-    IOLog("%s(%p)::start: interface has %d endpoints\n", getName(), this, numep);
-    
-    UInt8 transferType = 0;
-    UInt16 maxPacketSize = 0;
-    UInt8 interval = 0;
-    err = intf->GetEndpointProperties(0, 0x02, kUSBOut, &transferType, &maxPacketSize, &interval);
-    if (err) {
-        IOLog("%s(%p)::start - failed to get endpoint 2 properties\n", getName(), this);
-        intf->close(this);
-        pUsbDev->close(this);
-        return false;    
-    } else IOLog("%s(%p)::start: EP2 %d %d %d\n", getName(), this, transferType, maxPacketSize, interval);
-    
-    err = intf->GetEndpointProperties(0, 0x01, kUSBIn, &transferType, &maxPacketSize, &interval);
-    if (err) {
-        IOLog("%s(%p)::start - failed to get endpoint 1 properties\n", getName(), this);
-        intf->close(this);
-        pUsbDev->close(this);
-        return false;    
-    } else IOLog("%s(%p)::start: EP1 %d %d %d\n", getName(), this, transferType, maxPacketSize, interval);
-
-
-    // 2.3 Get the pipe for bulk endpoint 2 Out
-    IOUSBPipe * pipe = intf->GetPipeObj(0x02);
-    if (!pipe) {
-        IOLog("%s(%p)::start - failed to find bulk out pipe\n", getName(), this);
-        intf->close(this);
-        pUsbDev->close(this);
-        return false;    
-    }
-    /*  // TODO: Test the alternative way to do it:
-     IOUSBFindEndpointRequest pipereq;
-     pipereq.type = kUSBBulk;
-     pipereq.direction = kUSBOut;
-     pipereq.maxPacketSize = BULK_SIZE;
-     pipereq.interval = 0;
-     IOUSBPipe *pipe = intf->FindNextPipe(NULL, &pipereq);
-     pipe = intf->FindNextPipe(pipe, &pipereq);
-     if (!pipe) {
-     IOLog("%s(%p)::start - failed to find bulk out pipe 2\n", getName(), this);
-     intf->close(this);
-     pUsbDev->close(this);
-     return false;    
-     }
-     */
-
-    
-    // 3.0 Send request to Control Endpoint to initiate the firmware transfer
-    IOUSBDevRequest ctlreq;
-    ctlreq.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice);
-    ctlreq.bRequest = USB_REQ_DFU_DNLOAD;
-    ctlreq.wValue = 0;
-    ctlreq.wIndex = 0;
-    ctlreq.wLength = 20;
-    ctlreq.pData = firmware_buf;
-
-#if 0  // Trying to troubleshoot the problem after Restart (with OSBundleRequired Root)
-    for (int irep = 0; irep < 5; irep++) { // retry on error
-        err = pUsbDev->DeviceRequest(&ctlreq); // (synchronous, will block)
-        if (err)
-            IOLog("%s(%p)::start - failed to initiate firmware transfer (%d), retrying (%d)\n", getName(), this, err, irep+1);
-        else
-            break;
-    }
-#else
-    err = pUsbDev->DeviceRequest(&ctlreq); // (synchronous, will block)
-#endif
-    if (err) {
-        IOLog("%s(%p)::start - failed to initiate firmware transfer (%d)\n", getName(), this, err);
-        intf->close(this);
-        pUsbDev->close(this);
-        return false;
-    }
-
-    // 3.1 Create IOMemoryDescriptor for bulk transfers
-    char buftmp[BULK_SIZE];
-    IOMemoryDescriptor * membuf = IOMemoryDescriptor::withAddress(&buftmp, BULK_SIZE, kIODirectionNone);
-    if (!membuf) {
-        IOLog("%s(%p)::start - failed to map memory descriptor\n", getName(), this);
-        intf->close(this);
-        pUsbDev->close(this);
-        return false; 
-    }
-    err = membuf->prepare();
-    if (err) {
-        IOLog("%s(%p)::start - failed to prepare memory descriptor\n", getName(), this);
-        intf->close(this);
-        pUsbDev->close(this);
-        return false; 
-    }
-    
-    // 3.2 Send the rest of firmware to the bulk pipe
-    char * buf = firmware_buf;
-    int size = sizeof(firmware_buf); 
-    buf += 20;
-    size -= 20;
-    int ii = 1;
-    while (size) {
-        int to_send = size < BULK_SIZE ? size : BULK_SIZE; 
-        
-        memcpy(buftmp, buf, to_send);
-        err = pipe->Write(membuf, 10000, 10000, to_send);
-        if (err) {
-            IOLog("%s(%p)::start - failed to write firmware to bulk pipe (%d)\n", getName(), this, ii);
-            intf->close(this);
-            pUsbDev->close(this);
-            return false; 
+        //opent the device
+        kResult = pDeviceRaw->open(this);
+        if (kResult != KERN_SUCCESS)
+        {
+            IOLog("%s::%p::start -> error opening device (%08x)\n", this->getName(), this, kResult);
         }
-        buf += to_send;
-        size -= to_send;
-        ii++;
+        else
+        {
+            IOLog("%s::%p::start -> device open\n", this->getName(), this);
+            
+            //reset the device to set the device for configuration
+            kResult = pDeviceRaw->ResetDevice();
+            if (kResult != KERN_SUCCESS)
+            {
+                IOLog("%s::%p::start -> error resetting device (%08x)\n", this->getName(), this, kResult);
+            }
+            else
+            {
+                IOLog("%s::%p::start -> device reset\n", this->getName(), this);
+                
+                //get the configuration descriptor so we can set the default one
+                const IOUSBConfigurationDescriptor* pDeviceConfiguration = pDeviceRaw->GetFullConfigurationDescriptor(0);
+                if (pDeviceConfiguration != NULL)
+                {
+                    IOLog("%s::%p::start -> device configuration recieved\n", this->getName(), this);
+                    
+                    //set the configuration for the device
+                    kResult = pDeviceRaw->SetConfiguration(this, pDeviceConfiguration->bConfigurationValue);
+                    if (kResult != KERN_SUCCESS)
+                    {
+                        IOLog("%s::%p::start -> error setting device configuration (%08x)\n", this->getName(), this,
+                              kResult);
+                    }
+                    else
+                    {
+                        IOLog("%s::%p::start -> device configured\n", this->getName(), this);
+                        
+                        //get the interface with the bulk pipe out
+                        IOUSBInterface* pInterfaceWithBulkPipeOut = this->GetInterfaceWithBulkPipeOut(pDeviceRaw);
+                        if (pInterfaceWithBulkPipeOut != NULL)
+                        {
+                            //open the interface
+                            if (!pInterfaceWithBulkPipeOut->open(this))
+                            {
+                                IOLog("%s::%p::start -> error opening interface (%08x)\n", this->getName(), this,
+                                      kResult);
+                            }
+                            else
+                            {
+                                //get the bulk pipe number
+                                int iBulkPipeOutNumber = this->GetBulkPipeOutNumber(pInterfaceWithBulkPipeOut);
+                                if (iBulkPipeOutNumber >= 0)
+                                {
+                                    IOLog("%s::%p::start -> using bulk pipe #%d\n", this->getName(), this,
+                                          iBulkPipeOutNumber);
+                                    
+                                    //get the pointer to the bulk pipe
+                                    IOUSBPipe* pBulkPipe = pInterfaceWithBulkPipeOut->GetPipeObj(iBulkPipeOutNumber);
+                                    if (pBulkPipe != NULL)
+                                    {
+                                        IOLog("%s::%p::start -> bulk pipe assigned\n", this->getName(), this);
+                                        
+                                        
+                                        //start the actual transfer
+                                        //stage 1: use the control request to set the device to receive
+                                        //         and transfer the first 20 bytes from the firmware
+                                        
+                                        //set up parameters for the transfer
+                                        int iFirmwareRemaining = sizeof(g_bytesFirmware);
+                                        int iPosition = 0;
+                                        int iTransferSize = 20;
+                                        
+                                        //set up memory - create a buffer in kernel io memory
+                                        unsigned char* pBufferTransfer = (unsigned char*)::IOMalloc(BULK_SIZE);
+                                        if (pBufferTransfer != NULL)
+                                        {
+                                            IOLog("%s::%p::start -> kernel io memory allocated\n", this->getName(), this);
+                                            
+                                            //copy firmware from global buffer to the kernel io memory
+                                            ::memcpy(pBufferTransfer, g_bytesFirmware, iTransferSize);
+                                            
+                                            //create the request
+                                            IOUSBDevRequest requestWriteFirmware;
+                                            requestWriteFirmware.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBVendor,
+                                                                                                      kUSBDevice);
+                                            requestWriteFirmware.bRequest = USB_REQ_DFU_DNLOAD;
+                                            requestWriteFirmware.wIndex = 0;
+                                            requestWriteFirmware.wValue = 0;
+                                            requestWriteFirmware.wLength = iTransferSize;
+                                            requestWriteFirmware.pData = pBufferTransfer;
+                                            
+                                            //send the request
+                                            kResult = pDeviceRaw->DeviceRequest(&requestWriteFirmware, 10000, 10000);
+                                            if (kResult != KERN_SUCCESS)
+                                            {
+                                                IOLog("%s::%p::start -> error sending control request (%08x)\n",
+                                                      this->getName(), this, kResult);
+                                            }
+                                            else
+                                            {
+                                                IOLog("%s::%p::start -> control request sent\n", this->getName(), this);
+                                                
+                                                //update the counters
+                                                iPosition += iTransferSize;
+                                                iFirmwareRemaining -= iTransferSize;
+                                                
+                                                //set the memorydescriptor we will need in the bulk request
+                                                IOMemoryDescriptor* pDescriptorBuffer = IOMemoryDescriptor::withAddress(pBufferTransfer,
+                                                                                                                        BULK_SIZE,
+                                                                                                                        kIODirectionNone);
+                                                if (pDescriptorBuffer != NULL)
+                                                {
+                                                    kResult = pDescriptorBuffer->prepare();
+                                                    if (kResult != KERN_SUCCESS)
+                                                    {
+                                                        IOLog("%s::%p::start -> error preparing io memory descriptor (%08x)\n", this->getName(),
+                                                              this, kResult);
+                                                    }
+                                                    else
+                                                    {
+                                                        //loop through the rest of the firmware and transfer through the bulk pipe
+                                                        while (iFirmwareRemaining > 0)
+                                                        {
+                                                            //is memcpy the right one to use???!?!
+                                                            iTransferSize = MIN(iFirmwareRemaining, BULK_SIZE);
+                                                            ::memcpy(pBufferTransfer, g_bytesFirmware + iPosition, iTransferSize);
+                                                            
+                                                            kResult = pBulkPipe->Write(pDescriptorBuffer, 10000, 10000, iTransferSize);
+                                                            if (kResult != KERN_SUCCESS)
+                                                            {
+                                                                IOLog("%s::%p::start -> error writing to bulk pipe (%08x)\n", this->getName(),
+                                                                      this, kResult);
+                                                                
+                                                                break;
+                                                            }
+                                                            else
+                                                            {
+                                                                iPosition += iTransferSize;
+                                                                iFirmwareRemaining -= iTransferSize;
+                                                            }
+                                                        }
+                                                        
+                                                        pDescriptorBuffer->complete();
+                                                        pDescriptorBuffer->release();
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    IOLog("%s::%p::start -> error creating descriptor for io memory\n", this->getName(), this);
+                                                }
+                                                
+                                                //check if we transferred everything
+                                                if (iFirmwareRemaining <= 0)
+                                                {
+                                                    IOLog("%s::%p::start -> transfer successful\n", this->getName(), this);
+                                                }
+                                                else
+                                                {
+                                                    IOLog("%s::%p::start -> error: transfer failed, bytes remaining: %d, position %d\n",
+                                                          this->getName(), this, iFirmwareRemaining, iPosition);
+                                                }
+                                            }
+                                            
+                                            //clean up - unallocate kernel io memory
+                                            IOFree(pBufferTransfer, BULK_SIZE);
+                                        }
+                                        else
+                                        {
+                                            IOLog("%s::%p::start -> error allocating kernel io memory\n", this->getName(),
+                                                  this);
+                                        }
+                                        
+                                        //clean up - release the pipe
+                                        //pBulkPipe->release();
+                                    }
+                                    else
+                                    {
+                                        IOLog("%s::%p::start -> could not assign bulk pipe\n", this->getName(), this);
+                                    }
+                                }
+                                else
+                                {
+                                    IOLog("%s::%p::start -> error getting bulk pipe out #\n", this->getName(), this);
+                                }
+                                
+                                //clean up
+                                pInterfaceWithBulkPipeOut->close(this);
+                                //pInterfaceWithBulkPipeOut->release();
+                                IOLog("%s::%p::start -> interface closed\n", this->getName(), this);
+                            }
+                        }
+                        else
+                        {
+                            IOLog("%s::%p::start -> error getting interface with bulk pipe\n", this->getName(), this);
+                        }
+                    }
+                }
+                else
+                {
+                    IOLog("%s::%p::start -> error getting configuration descriptor\n", this->getName(), this);
+                }
+            }
+            
+            //clean up
+            pDeviceRaw->close(this);
+            //pDeviceRaw->release();
+            IOLog("%s::%p::start -> device closed\n", this->getName(), this);
+        }
     }
-    IOLog("%s(%p)::start: firmware was sent to bulk pipe\n", getName(), this);
+    else IOLog("%s::%p::start -> error casting provider to usb device\n", this->getName(), this);
     
-    err = membuf->complete();
-    if (err) {
-        IOLog("%s(%p)::start - failed to complete memory descriptor\n", getName(), this);
-        intf->close(this);
-        pUsbDev->close(this);
-        return false; 
-    }
-
-    /*  // TODO: Test the alternative way to do it:
-     IOMemoryDescriptor * membuf = IOMemoryDescriptor::withAddress(&firmware_buf[20], 246804-20, kIODirectionNone); // sizeof(firmware_buf)
-     if (!membuf) {
-     IOLog("%s(%p)::start - failed to map memory descriptor\n", getName(), this);
-     intf->close(this);
-     pUsbDev->close(this);
-     return false; 
-     }
-     err = membuf->prepare();
-     if (err) {
-     IOLog("%s(%p)::start - failed to prepare memory descriptor\n", getName(), this);
-     intf->close(this);
-     pUsbDev->close(this);
-     return false; 
-     }
-     
-     //err = pipe->Write(membuf);
-     err = pipe->Write(membuf, 10000, 10000, 246804-20, NULL);
-     if (err) {
-     IOLog("%s(%p)::start - failed to write firmware to bulk pipe\n", getName(), this);
-     intf->close(this);
-     pUsbDev->close(this);
-     return false; 
-     }
-     IOLog("%s(%p)::start: firmware was sent to bulk pipe\n", getName(), this);
-     */
-    
-    
-    // 4.0 Get device status (it fails, but somehow is important for operational device)
-    err = pUsbDev->GetDeviceStatus(&status);
-    if (err)
-    {
-        IOLog("%s(%p)::start - unable to get device status\n", getName(), this);
-        intf->close(this);
-        pUsbDev->close(this);
-        return false;
-    } else IOLog("%s(%p)::start: device status %d\n", getName(), this, (int)status);
-
-
-    // Close the interface
-    intf->close(this);
-
-    // Close the USB device
-    pUsbDev->close(this);
-    return false;  // return false to allow a different driver to load
+    return(false);
 }
 
 
 
-void 
-local_IOath3kfrmwr::stop(IOService *provider)
+void local_IOath3kfrmwr::stop(IOService *provider)
 {
     IOLog("%s(%p)::stop\n", getName(), this);
     super::stop(provider);
 }
 
-
-
-bool 
-local_IOath3kfrmwr::handleOpen(IOService *forClient, IOOptionBits options, void *arg )
-{
-    IOLog("%s(%p)::handleOpen\n", getName(), this);
-    return super::handleOpen(forClient, options, arg);
-}
-
-
-
-void 
-local_IOath3kfrmwr::handleClose(IOService *forClient, IOOptionBits options )
-{
-    IOLog("%s(%p)::handleClose\n", getName(), this);
-    super::handleClose(forClient, options);
-}
-
-
-
-IOReturn 
-local_IOath3kfrmwr::message(UInt32 type, IOService *provider, void *argument)
+/*IOReturn local_IOath3kfrmwr::message(UInt32 type, IOService *provider, void *argument)
 {
     IOLog("%s(%p)::message\n", getName(), this);
     switch ( type )
@@ -384,21 +378,4 @@ local_IOath3kfrmwr::message(UInt32 type, IOService *provider, void *argument)
     
     return kIOReturnSuccess;
     return super::message(type, provider, argument);
-}
-
-
-
-bool 
-local_IOath3kfrmwr::terminate(IOOptionBits options)
-{
-    IOLog("%s(%p)::terminate\n", getName(), this);
-    return super::terminate(options);
-}
-
-
-bool 
-local_IOath3kfrmwr::finalize(IOOptionBits options)
-{
-    IOLog("%s(%p)::finalize\n", getName(), this);
-    return super::finalize(options);
-}
+}*/
