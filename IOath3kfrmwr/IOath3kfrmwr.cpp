@@ -141,7 +141,6 @@ int local_IOath3kfrmwr::GetBulkPipeOutNumber(IOUSBInterface* pInterface)
 bool local_IOath3kfrmwr::start(IOService *provider)
 {
     kern_return_t kResult = KERN_SUCCESS;
-    bool bReturn = false;
     
     //get the device
     IOUSBDevice* pDeviceRaw = OSDynamicCast(IOUSBDevice, provider);
@@ -157,6 +156,17 @@ bool local_IOath3kfrmwr::start(IOService *provider)
         else
         {
             IOLog("%s::%p::start -> device open\n", this->getName(), this);
+            
+            USBStatus statusDevice = 0;
+            kResult = pDeviceRaw->GetDeviceStatus(&statusDevice);
+            if (kResult != KERN_SUCCESS)
+            {
+                IOLog("%s::%p::start -> error getting status (%08x)\n", this->getName(), this, kResult);
+            }
+            else
+            {
+                IOLog("%s::%p::start -> device status: (%08x)\n", this->getName(), this, statusDevice);
+            }
             
             //reset the device to set the device for configuration
             kResult = pDeviceRaw->ResetDevice();
@@ -289,8 +299,18 @@ bool local_IOath3kfrmwr::start(IOService *provider)
                                                             }
                                                         }
                                                         
-                                                        pDescriptorBuffer->complete();
+                                                        kResult = pDescriptorBuffer->complete();
+                                                        if (kResult != KERN_SUCCESS)
+                                                        {
+                                                            IOLog("%s::%p::start -> error completing memory descriptor (%08x)\n", this->getName(),
+                                                                  this, kResult);
+                                                        }
+                                                        else
+                                                        {
+                                                            IOLog("%s::%p::start -> memory descriptor completed\n", this->getName(), this);
+                                                        }
                                                         pDescriptorBuffer->release();
+                                                        IOLog("%s::%p::start -> memory descriptor released\n", this->getName(), this);
                                                     }
                                                 }
                                                 else
@@ -301,18 +321,30 @@ bool local_IOath3kfrmwr::start(IOService *provider)
                                                 //check if we transferred everything
                                                 if (iFirmwareRemaining <= 0)
                                                 {
-                                                    bReturn = true;
-                                                    IOLog("%s::%p::start -> transfer successful\n", this->getName(), this);
+                                                    IOLog("%s::%p::start -> transfer successful (%d bytes)\n", this->getName(), this, iPosition);
                                                     
-                                                    kResult = pDeviceRaw->ResetDevice();
-                                                    if (kResult != KERN_SUCCESS)
-                                                    {
-                                                        IOLog("%s::%p::start -> error resetting device for final (%08x)\n", this->getName(), this, kResult);
-                                                    }
-                                                    else
-                                                    {
-                                                        IOLog("%s::%p::start -> device final reset\n", this->getName(), this);
-                                                    }
+                                                    //reset the device to clean the interfaces
+                                                    /*kResult = pDeviceRaw->ResetDevice();
+                                                     if (kResult != KERN_SUCCESS)
+                                                     {
+                                                     IOLog("%s::%p::start -> error resetting device for final (%08x)\n", this->getName(), this, kResult);
+                                                     }
+                                                     else
+                                                     {
+                                                     IOLog("%s::%p::start -> device final reset\n", this->getName(), this);
+                                                     
+                                                     //re-configure the device
+                                                     kResult = pDeviceRaw->SetConfiguration(this, pDeviceConfiguration->bConfigurationValue);
+                                                     if (kResult != KERN_SUCCESS)
+                                                     {
+                                                     IOLog("%s::%p::start -> error reconfiguring the device (%08x)\n", this->getName(), this,
+                                                     kResult);
+                                                     }
+                                                     else
+                                                     {
+                                                     IOLog("%s::%p::start -> device reconfigured\n", this->getName(), this);
+                                                     }
+                                                     }*/
                                                 }
                                                 else
                                                 {
@@ -322,7 +354,8 @@ bool local_IOath3kfrmwr::start(IOService *provider)
                                             }
                                             
                                             //clean up - unallocate kernel io memory
-                                            IOFree(pBufferTransfer, BULK_SIZE);
+                                            ::IOFree(pBufferTransfer, BULK_SIZE);
+                                            IOLog("%s::%p::start -> kernel io memory free\n", this->getName(), this);
                                         }
                                         else
                                         {
@@ -369,7 +402,7 @@ bool local_IOath3kfrmwr::start(IOService *provider)
     }
     else IOLog("%s::%p::start -> error casting provider to usb device\n", this->getName(), this);
     
-    return(bReturn);
+    return(false);
 }
 
 
