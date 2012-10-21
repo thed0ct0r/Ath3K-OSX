@@ -44,8 +44,6 @@
 	</dict>
 	<key>NSHumanReadableCopyright</key>
 	<string>Open Source 2012 mac4mat</string>
-	<key>OSBundleRequired</key>
-	<string>Root</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOUSBFamily</key>

@@ -13,13 +13,16 @@ private:
     int GetBulkPipeOutNumber(IOUSBInterface* pInterface);
     
 public:
-    virtual bool init(OSDictionary *dictionary = 0);
+    virtual bool init(OSDictionary* dictionary = 0);
     virtual void free(void);
     
-    virtual IOService *probe(IOService *provider, SInt32 *score);
+    virtual bool attach(IOService* provider);
+    virtual void detach(IOService* provider);
     
-    virtual bool start(IOService *provider);
-    virtual void stop(IOService *provider);
+    virtual IOService* probe(IOService* provider, SInt32 *score);
+    
+    virtual bool start(IOService* provider);
+    virtual void stop(IOService* provider);
 };
 
 #endif //__IOATH3KFRMWR__ 

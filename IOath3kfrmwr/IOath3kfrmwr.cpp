@@ -44,6 +44,18 @@ void local_IOath3kfrmwr::free(void)
     super::free();
 }
 
+bool local_IOath3kfrmwr::attach(IOService* provider)
+{
+    IOLog("local_IOath3kfrmwr::attach\n");
+    return(super::attach(provider));
+}
+
+void local_IOath3kfrmwr::detach(IOService* provider)
+{
+    IOLog("local_IOath3kfrmwr::detach\n");
+    super::detach(provider);
+}
+
 IOService* local_IOath3kfrmwr::probe(IOService *provider, SInt32 *score)
 {
     IOLog("%s(%p)::probe\n", getName(), this);
@@ -140,6 +152,14 @@ int local_IOath3kfrmwr::GetBulkPipeOutNumber(IOUSBInterface* pInterface)
 //
 bool local_IOath3kfrmwr::start(IOService *provider)
 {
+    //make sure we can super::start() - this is the only place we will return with no indenting
+    /*if (!super::start(provider))
+    {
+        IOLog("%s::%p::start -> error for super::start()\n", this->getName(), this);
+        return(false);
+    }
+    else IOLog("%s::%p::start -> super::start() ok\n", this->getName(), this);*/
+    
     kern_return_t kResult = KERN_SUCCESS;
     
     //get the device
@@ -365,6 +385,7 @@ bool local_IOath3kfrmwr::start(IOService *provider)
                                         
                                         //clean up - release the pipe
                                         //pBulkPipe->release();
+                                        //IOLog("%s::%p::start -> bulk pipe out released\n", this->getName(), this);
                                     }
                                     else
                                     {
@@ -402,10 +423,11 @@ bool local_IOath3kfrmwr::start(IOService *provider)
     }
     else IOLog("%s::%p::start -> error casting provider to usb device\n", this->getName(), this);
     
+    //remove our driver
+    //this->stop(provider);
+    
     return(false);
 }
-
-
 
 void local_IOath3kfrmwr::stop(IOService *provider)
 {
